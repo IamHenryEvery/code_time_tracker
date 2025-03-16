@@ -23,6 +23,7 @@ def is_vscode_focused():
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
+#Todo Добавить комментарии
 def main():
     creds = None
 
@@ -43,6 +44,7 @@ def main():
         service = build("calendar", "v3", credentials=creds)
         start = arrow.now().shift(hours=-5).isoformat()
         end = arrow.now().shift(hours=-2).isoformat()
+        #TODO Добавить основную логику добавления события
         event = {
             "summary": "Created via API event",
             "start": {"dateTime": start},
