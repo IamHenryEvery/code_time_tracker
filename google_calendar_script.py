@@ -1,4 +1,5 @@
 import os.path
+import signal
 import time
 
 import arrow
@@ -9,6 +10,9 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from loguru import logger
+
+logger.add("logs.txt")
 
 
 def enum_windows_callback(hwnd, processes_with_windows: set):
@@ -59,7 +63,7 @@ def get_process_name_by_pid(pid: int) -> str:
 
 
 def is_programming(processes_with_windows: set[str]) -> bool:
-    """Фукнция, которая определит, открыт ли VsCode или PyCharm
+    """Фукнция, которая определяет, открыт ли VsCode или PyCharm
 
     Args:
         processes_with_windows (set[str]): Множество процессов с открытыми
@@ -101,8 +105,11 @@ def connect_to_calendar():
             token.write(creds.to_json())
 
     service = build("calendar", "v3", credentials=creds)
+    logger.info('Подключение к календарю установлено')
     return service
 
+
+def signal_handler(): ...
 
 
 def main(service):
@@ -111,11 +118,17 @@ def main(service):
     Args:
         service: Сервис для поключения к API Google календаря
     """
+    signal.signal(signal.SIGINT, signal_handler)
     start = arrow.now().isoformat()
+    preriod_started = True
+    first_period = True
+    count_periods = 0
     while True:
         # TODO Добавить обработку случая с повторным открытием окна
-        if not is_programming(get_processes_with_windows()):
-            end = arrow.now().isoformat()
+        if not is_programming(get_processes_with_windows()) and preriod_started:
+            if first_period:
+                end = arrow.now().isoformat()
+                first_period = False
             event = {
                 "summary": "Программирование",
                 "start": {"dateTime": start},
@@ -126,7 +139,15 @@ def main(service):
                 .insert(calendarId="primary", body=event)
                 .execute()
             )
-            print(f"Event created: {event.get('htmlLink')}")
+            count_periods += 1
+            preriod_started = False
+            logger.success(
+                f"Событие создано: {event.get('htmlLink')}.\
+                Время: с {start} до {end}"
+            )
+        elif not first_period:
+            start = arrow.now().isoformat()
+            preriod_started = True
 
         time.sleep(60)
 
