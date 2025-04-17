@@ -1,5 +1,6 @@
 import os.path
 import signal
+import sys
 import time
 
 import arrow
@@ -11,8 +12,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from loguru import logger
-
-logger.add("logs.txt")
 
 
 def enum_windows_callback(hwnd, processes_with_windows: set):
@@ -79,9 +78,6 @@ def is_programming(processes_with_windows: set[str]) -> bool:
     )
 
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
-
-
 def connect_to_calendar():
     """Функция для подключения к Google календарю, используя учетные данные
     из файла credentials.json и/или токен из файла token.json
@@ -105,53 +101,69 @@ def connect_to_calendar():
             token.write(creds.to_json())
 
     service = build("calendar", "v3", credentials=creds)
-    logger.info('Подключение к календарю установлено')
+    logger.info("Подключение к календарю установлено")
     return service
 
 
-def signal_handler(): ...
+def add_event():
+    global count_periods
+    end = arrow.now()
+    if (end - start).seconds > 120:
+        event = {
+            "summary": "Программирование",
+            "start": {"dateTime": start.isoformat()},
+            "end": {"dateTime": end.isoformat()},
+        }
+        event = (
+            service.events().insert(calendarId="primary", body=event).execute()
+        )
+        logger.success(
+            f"Событие создано: {event.get('htmlLink')}.\
+                    Время: с {start} до {end}"
+        )
+        count_periods += 1
 
 
-def main(service):
+def signal_handler(signum, frame):
+    add_event()
+    logger.info("Скрипт завершен")
+    sys.exit(0)
+
+
+def main():
     """Главная функция для добавления событий в календарь
 
     Args:
         service: Сервис для поключения к API Google календаря
     """
+    global start, count_periods
     signal.signal(signal.SIGINT, signal_handler)
-    start = arrow.now().isoformat()
     preriod_started = True
-    first_period = True
-    count_periods = 0
     while True:
         # TODO Добавить обработку случая с повторным открытием окна
-        if not is_programming(get_processes_with_windows()) and preriod_started:
-            if first_period:
-                end = arrow.now().isoformat()
-                first_period = False
-            event = {
-                "summary": "Программирование",
-                "start": {"dateTime": start},
-                "end": {"dateTime": end},
-            }
-            event = (
-                service.events()
-                .insert(calendarId="primary", body=event)
-                .execute()
-            )
-            count_periods += 1
+        prog_state = is_programming(get_processes_with_windows())
+        if not prog_state and preriod_started:
+            add_event()
             preriod_started = False
-            logger.success(
-                f"Событие создано: {event.get('htmlLink')}.\
-                Время: с {start} до {end}"
-            )
-        elif not first_period:
+        elif prog_state and (not preriod_started):
             start = arrow.now().isoformat()
             preriod_started = True
-
         time.sleep(60)
 
 
 if __name__ == "__main__":
+    SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+    logger.remove()
+    logger.add(
+        sink="logs.txt",
+        format="<level>{time:MMMM D, YYYY HH:mm:ss} {level} --- {message}</level>",
+        colorize=True,
+    )
+    logger.level("INFO", color="<cyan>")
+    logger.level("SUCCESS", color="<green>")
     service = connect_to_calendar()
-    main(service)
+    start = arrow.now()
+    count_periods = 0
+    logger.info("Скрипт запущен")
+    main()
