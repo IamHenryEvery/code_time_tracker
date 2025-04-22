@@ -10,7 +10,9 @@ dependencies = [
     "google-auth-httplib2>=0.2.0",
     "google-auth-oauthlib>=1.2.1",
     "loguru>=0.7.3",
+    "pillow>=11.2.1",
     "psutil>=7.0.0",
+    "pystray>=0.19.5",
     "pywin32>=309",
 ]
 

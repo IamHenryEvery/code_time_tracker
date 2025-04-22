@@ -3,3 +3,4 @@ credentials.json
 token.json
 logs.txt
 main.py
+google_calendar_script.bat
