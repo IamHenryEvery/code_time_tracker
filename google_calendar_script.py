@@ -106,12 +106,20 @@ def connect_to_calendar():
     return service
 
 
-
 def on_exit(icon, item):
+    """Функция для обработки нажатия кнопки "Выход" у иконки
+
+    Args:
+        icon (pystray.Icon): Объект иконки в трее, который управляет
+        отображением и поведением иконки.
+        item (pystray.MenuItem): Объект пункта меню, который был активирован (в
+        данном случае — кнопка "Выход").
+    """
     icon.stop()
 
 
 def run_tray_icon():
+    """Функция для запуска иконки"""
     icon.run()
 
 
@@ -155,6 +163,8 @@ def add_calendar_event(stop_event):
 
 if __name__ == "__main__":
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+    # Настраиваем логгер
     logger.remove()
     logger.add(
         sink="logs.txt",
@@ -164,6 +174,7 @@ if __name__ == "__main__":
     logger.level("INFO", color="<cyan>")
     logger.level("SUCCESS", color="<green>")
 
+    # Создаем иконку с кнопкой для выхода
     icon_image = Image.open("icon.png")
     menu = pystray.Menu(pystray.MenuItem("Выход", on_exit))
     icon = pystray.Icon(
@@ -177,9 +188,11 @@ if __name__ == "__main__":
     service = connect_to_calendar()
     logger.info("Скрипт запущен")
 
+    # Запускаем поток для иконки в трее
     tray_thread = threading.Thread(target=run_tray_icon, daemon=True)
     tray_thread.start()
 
+    # Запускаем поток для добавления событий в календарь
     event_thread = threading.Thread(
         target=add_calendar_event, args=(stop_event,), daemon=True
     )
